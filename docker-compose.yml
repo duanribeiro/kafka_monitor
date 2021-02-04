@@ -1,0 +1,101 @@
+version: '3.1'
+services:
+
+  zabbix-agent:
+    container_name: zabbix-agent
+    image: zabbix/zabbix-agent:latest
+    restart: always
+    links:
+      - zabbix-server
+    ports:
+      - 10050:10050
+    environment:
+      - ZBX_HOSTNAME=Zabbix server
+      - ZBX_SERVER_HOST=zabbix-server
+
+  elasticsearch:
+    container_name: elasticsearch
+    image: elasticsearch:7.2.1
+    ports:
+      - 9200:9200
+    command: ["elasticsearch", "-Egateway.expected_nodes=1", "-Enetwork.host=_eth0:ipv4_", "-Ediscovery.type=single-node"]
+
+  postgres-server:
+    container_name: postgres-server
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: zabbix
+      POSTGRES_DB: zabbix
+      PG_DATA: /var/lib/postgresql/data/pgdata
+
+  zabbix-server:
+    container_name: zabbix-server
+    image: zabbix/zabbix-server-pgsql:ubuntu-latest
+    restart: always
+    ports:
+      - 10051:10051
+    environment:
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: zabbix
+      POSTGRES_DB: zabbix
+      ZBX_HISTORYSTORAGETYPES: log,text
+      ZBX_DEBUGLEVEL: 1
+      ZBX_HOUSEKEEPINGFREQUENCY: 1
+      ZBX_MAXHOUSEKEEPERDELETE: 5000
+    volumes:
+      - /usr/lib/zabbix/alertscripts:/usr/lib/zabbix/alertscripts
+
+  zabbix-web:
+    container_name: zabbix-web
+    image: zabbix/zabbix-web-nginx-pgsql:ubuntu-latest
+    restart: always
+    environment:
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: zabbix
+      POSTGRES_DB: zabbix
+      ZBX_SERVER_HOST: zabbix-server
+      ZBX_POSTMAXSIZE: 64M
+      PHP_TZ: America/Sao_Paulo
+      ZBX_MAXEXECUTIONTIME: 500
+    depends_on:
+      - zabbix-server
+    ports:
+      - 8080:8080
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana
+    depends_on:
+      - zabbix-server
+    ports:
+      - 3000:3000
+    environment:
+      GF_INSTALL_PLUGINS: alexanderzobnin-zabbix-app
+
+  zookeeper:
+    container_name: zookeeper
+    image: wurstmeister/zookeeper
+    ports:
+     - 2181:2181
+
+  kafka:
+    container_name: kafka
+    image: wurstmeister/kafka
+    ports:
+     - 9092:9092
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka:9093,OUTSIDE://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      KAFKA_LISTENERS: INSIDE://0.0.0.0:9093,OUTSIDE://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+
+  kafka-producer:
+    container_name: kafka-producer
+    build: ./kafka_producer
+
+  kafka-consumer:
+    container_name: kafka-consumer
+    build: ./kafka_consumer

@@ -1,23 +1,26 @@
 from kafka import KafkaProducer
 import time
 import random
+from config import logger_config
 from json import dumps
+import logging
+from logging.config import dictConfig
 
+dictConfig(config=logger_config)
+logger = logging.getLogger(__name__)
 
 if __name__ == '__main__':
     index = 0
 
+    producer = KafkaProducer(bootstrap_servers=['kafka:9093'],
+                             acks='all',
+                             retries=999999999999)
+
     while True:
-        message = str(random.random())
-        # producer = KafkaProducer(bootstrap_servers='kafka:9093')
-        producer = KafkaProducer(bootstrap_servers=['kafka:9093'],
-                                 acks='all',  # Required for safe producer
-                                 retries=999999999999,  # Required for safe producer
-                                 max_in_flight_requests_per_connection=5,  # Required for safe producer
-                                 linger_ms=20,  # Required for high throughput producer
-                                 batch_size=32 * 1024)  # Required for high throughput producer
-        print(f"[{index}] Sending message: {message}")
-        producer.send('my-topic-example', message.encode())
+        message = 'EXAMPLE MESSAGE TEST'
+
+        logger.warning(f"[{index}] Sending message !!!")
+        producer.send('my-topic', message.encode())
         producer.flush()
 
         index += 1

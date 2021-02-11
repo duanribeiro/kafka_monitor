@@ -1,0 +1,8 @@
+output.elasticsearch.hosts: ["http://elasticsearch:9200"]
+setup.kibana.host: "http://kibana:5601"
+
+heartbeat.monitors:
+- type: http
+  schedule: '@every 10s'
+  urls: ["http://api:5000"]
+  check.response.status: 200
